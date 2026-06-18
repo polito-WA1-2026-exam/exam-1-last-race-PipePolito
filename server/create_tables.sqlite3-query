@@ -1,0 +1,31 @@
+-- database: ./database.sqlite
+
+CREATE TABLE connections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    line_id INTEGER NOT NULL REFERENCES lines(id),
+    station_1_id INTEGER NOT NULL REFERENCES stations(id),
+    station_2_id INTEGER NOT NULL REFERENCES stations(id)
+);
+
+
+CREATE TABLE games (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  start_station_id INTEGER NOT NULL REFERENCES stations(id),
+  end_station_id INTEGER NOT NULL REFERENCES stations(id),
+  status TEXT NOT NULL DEFAULT 'planning',   -- 'planning' | 'completed'
+  final_coins INTEGER,                        -- NULL until route is submitted
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  time_spent REAL NOT NULL DEFAULT 0.0
+);
+
+CREATE TABLE game_segments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  game_id INTEGER NOT NULL REFERENCES games(id),
+  from_station_id INTEGER NOT NULL REFERENCES stations(id),
+  to_station_id INTEGER NOT NULL REFERENCES stations(id),
+  line_id INTEGER NOT NULL REFERENCES lines(id),
+  segment_order INTEGER NOT NULL,
+  coin_delta INTEGER                          -- NULL until execution, then set by server
+);
+
