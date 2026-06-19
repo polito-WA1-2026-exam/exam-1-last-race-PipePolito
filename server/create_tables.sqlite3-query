@@ -1,5 +1,13 @@
 -- database: ./database.sqlite
 
+
+CREATE TABLE events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name_event TEXT UNIQUE NOT NULL,
+  probability REAL NOT NULL,
+  score INTEGER NOT NULL
+);
+
 CREATE TABLE connections (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     line_id INTEGER NOT NULL REFERENCES lines(id),
