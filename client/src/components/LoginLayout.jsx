@@ -15,7 +15,7 @@ function LoginForm(props) {
         const credentials = { email, password };
 
         props.login(credentials)
-            .then ( () => navigate( "/ranking" ) )
+            .then ( () => navigate( "/" ) )
             .catch( (err) => {
             if(err.message === "Unauthorized")
                 setErrorMessage("Invalid email and/or password");

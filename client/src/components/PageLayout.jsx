@@ -20,7 +20,8 @@ export function InitLayout({ loggedIn }) {
                         <>
                             <h4 className="text-center mb-3">Ready to race?</h4>
                             <p className="text-center text-muted">Your session is active. Check the ranking or jump into a game!</p>
-                            <Link to="/ranking" className="btn btn-success btn-lg mt-2">Let's Play</Link>
+                            <Link to="/ranking" className="btn btn-primary btn-lg mt-2">See Ranking</Link>
+                            <Link to="/game" className="btn btn-success btn-lg mt-2">Let's Play</Link>
                         </>
                     ) : (
                         <>
@@ -95,7 +96,7 @@ export function RulesLayout({ loggedIn }) {
                 <div className="d-flex gap-3 mt-4">
                     <Link to="/" className="btn btn-outline-secondary">← Back to Home</Link>
                     {loggedIn ? (
-                        <Link to="/ranking" className="btn btn-success btn-lg mt-2">Let's Play</Link>
+                        <Link to="/game" className="btn btn-success btn-lg mt-2">Let's Play</Link>
                         ): (
                         <Link to="/login" className="btn btn-primary">Login to Play</Link>) 
                     }
