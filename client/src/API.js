@@ -106,7 +106,7 @@ async function getRanking() {
   const res = await fetch(`${SERVER_URL}/api/ranking`, {
     credentials: 'include',
   });
-  if (res.ok) return res.json();          // [{ name, surname, final_coins, created_at }]
+  if (res.ok) return res.json();          // [{ name + surname, created_at, final_coins, time_spent }]
   const err = await res.json();
   throw new Error(err.error);
 }

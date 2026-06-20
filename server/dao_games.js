@@ -160,10 +160,10 @@ export default function GameDao() {
   this.getRanking = () => {
   return new Promise((resolve, reject) => {
     const sql = `
-      SELECT u.name, u.surname, g.final_coins, g.created_at
+      SELECT u.name, u.surname, g.final_coins, g.created_at, g.time_spent
       FROM games g JOIN users u ON g.user_id = u.id
       WHERE g.status = 'completed'
-      ORDER BY g.final_coins DESC
+      ORDER BY g.final_coins DESC, g.time_spent ASC
       LIMIT 10
     `;
     db.all(sql, [], (err, rows) => {

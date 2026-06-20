@@ -1,7 +1,7 @@
-import { Col, Row, ListGroup, Badge } from "react-bootstrap";
+import { Col, Row, ListGroup } from "react-bootstrap";
 import { Link } from "react-router-dom";
 
-export function InitLayout() {
+export function InitLayout({ loggedIn }) {
     return (
         <>
             {/* Welcome — top center */}
@@ -14,11 +14,21 @@ export function InitLayout() {
 
             {/* Two columns below */}
             <Row className="justify-content-center mt-3">
-                {/* Left — login */}
+                {/* Left — login or play */}
                 <Col md={4} className="d-flex flex-column align-items-center border-end py-4">
-                    <h4 className="text-center mb-3">Ready to play?</h4>
-                    <p className="text-center text-muted">Login with your account to start a game and appear in the ranking.</p>
-                    <Link to="/login" className="btn btn-primary btn-lg mt-2">Login</Link>
+                    {loggedIn ? (
+                        <>
+                            <h4 className="text-center mb-3">Ready to race?</h4>
+                            <p className="text-center text-muted">Your session is active. Check the ranking or jump into a game!</p>
+                            <Link to="/ranking" className="btn btn-success btn-lg mt-2">Let's Play</Link>
+                        </>
+                    ) : (
+                        <>
+                            <h4 className="text-center mb-3">Ready to play?</h4>
+                            <p className="text-center text-muted">Login with your account to start a game and appear in the ranking.</p>
+                            <Link to="/login" className="btn btn-primary btn-lg mt-2">Login</Link>
+                        </>
+                    )}
                 </Col>
 
                 {/* Right — rules */}
@@ -32,7 +42,7 @@ export function InitLayout() {
     );
 }
 
-export function RulesLayout() {
+export function RulesLayout({ loggedIn }) {
     return (
         <Row className="justify-content-center my-4">
             <Col md={8}>
@@ -84,7 +94,11 @@ export function RulesLayout() {
 
                 <div className="d-flex gap-3 mt-4">
                     <Link to="/" className="btn btn-outline-secondary">← Back to Home</Link>
-                    <Link to="/login" className="btn btn-primary">Login to Play</Link>
+                    {loggedIn ? (
+                        <Link to="/ranking" className="btn btn-success btn-lg mt-2">Let's Play</Link>
+                        ): (
+                        <Link to="/login" className="btn btn-primary">Login to Play</Link>) 
+                    }
                 </div>
             </Col>
         </Row>

@@ -3,18 +3,20 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import './App.css';
 
 import { useEffect, useState } from 'react';
-import { Route, Routes, Navigate, useLocation } from 'react-router-dom';
+import { Route, Routes, Navigate } from 'react-router-dom';
 import {InitLayout, NotFoundLayout, RulesLayout} from './components/PageLayout.jsx';
+import Header from './components/Header.jsx';
+import { RankingList } from './components/DisplayRankings.jsx';
 import FeedbackContext from './contexts/FeedbackContext.js';
 import { LoginForm } from './components/LoginLayout.jsx';
-import { login, getCurrentUser, logout } from './API.js';
+import { login, getCurrentUser, logout, getRanking } from './API.js';
 
 
 function App() {
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [user, setUser] = useState({ id: undefined, surname: undefined, name: undefined, email: undefined });
   const [loggedIn, setLoggedIn] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [ranking, setRanking] = useState([]);
 
   const setFeedbackFromError = (err) => {
         let message = '';
@@ -33,6 +35,7 @@ function App() {
   // Called by LogoutButton
   const handleLogout = async () => {
     await logout();
+    setLoggedIn(false);
     setUser({ id: undefined, surname: undefined, name: undefined, email: undefined });
   };
 
@@ -49,13 +52,26 @@ function App() {
     });   // not logged in — stay as anonymous
   }, []);
 
+  useEffect(() => {
+    getRanking()
+      .then(ranking => {
+        setRanking(ranking);
+      })
+      .catch(e => setFeedbackFromError(e));
+  }, []);
+
   return (
     <FeedbackContext.Provider value={{ user, setUser }}>
+      <Header loggedIn={loggedIn} handleLogout={handleLogout} />
       <Routes>
-        <Route path="/"      element={<InitLayout />} />   {/* home/welcome */}
-        <Route path="/login" element={<LoginForm login={handleLogin} />} />
-        <Route path="/rules" element={<RulesLayout />} />
-        
+        <Route path="/"      element={<InitLayout loggedIn={loggedIn} />} />
+        <Route path="/login" element={
+          loggedIn ? <Navigate replace to='/ranking' />
+          : <LoginForm login={handleLogin} />} />
+        <Route path="/rules" element={<RulesLayout loggedIn={loggedIn} />} />
+        <Route path="/ranking" element={
+          !loggedIn ? <Navigate replace to ='/login' />
+          : <RankingList rankings={ranking}/>}/>    
         <Route path="*"      element={<NotFoundLayout />} />
       </Routes>
     </FeedbackContext.Provider>
