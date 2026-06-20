@@ -66,7 +66,8 @@ app.post('/api/sessions', function(req, res, next) {
         return next(err);
         if (!user) {
           // display wrong login messages
-          return res.status(401).json({ error: info});
+          const errorMsg = typeof info === 'string' ? info : (info?.message || 'Incorrect credentials');
+          return res.status(401).json({ error: errorMsg });
         }
         // success, perform the login and extablish a login session
         req.login(user, (err) => {

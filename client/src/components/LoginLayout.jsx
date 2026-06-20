@@ -1,10 +1,7 @@
-import { useContext, useState } from "react";
-import {Col, Collapse, Row, Button, Form, Alert} from "react-bootstrap";
-import {Link, Outlet, useLocation, useParams, useNavigate} from "react-router-dom";
+import { useState } from "react";
+import {Col, Row, Button, Form, Alert} from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
-
-
-import FeedbackContext from "../contexts/FeedbackContext.js";
 
 function LoginForm(props) {
     const [email, SetEmail] = useState('');
@@ -18,7 +15,7 @@ function LoginForm(props) {
         const credentials = { email, password };
 
         props.login(credentials)
-            .then ( () => navigate( "/" ) )
+            .then ( () => navigate( "/rules" ) )
             .catch( (err) => {
             if(err.message === "Unauthorized")
                 setErrorMessage("Invalid email and/or password");
@@ -54,7 +51,7 @@ function LoginForm(props) {
                         <Form.Control
                             type="password"
                             value={password} placeholder="Enter the password."
-                            onChange={(ev) => setPassword(ev.target.value)}
+                            onChange={(ev) => SetPassword(ev.target.value)}
                             required={true} minLength={6}
                         />
                     </Form.Group>

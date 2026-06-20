@@ -1,7 +1,5 @@
 import db from "./db.js";
 
-import { Game } from "./gameModel.js";
-
 export default function GameDao() {
   // Retrieve the list of stations
   this.listStations = () => {
@@ -21,12 +19,12 @@ export default function GameDao() {
   // Retrieve the game by ID
   this.getGame = (id) => {
     return new Promise((resolve, reject) => {
-      const sql = "SELECT user_id, start_station_id, end_station_id, status, final_coins, created_at, time_spent FROM games WHERE id = ?";
+      const sql = "SELECT id, user_id, start_station_id, end_station_id, status, final_coins, created_at, time_spent FROM games WHERE id = ?";
       db.get(sql, [id], (err, row) => {
         if(err)
           reject(err);
         else if(row !== undefined)
-          resolve(new Game(row.user_id, row.start_station_id, row.end_station_id, row.status, row.final_coins, row.created_at, row.time_spent));
+          resolve({ id: row.id, userId: row.user_id, startId: row.start_station_id, endId: row.end_station_id, status: row.status, score: row.final_coins, created: row.created_at, time: row.time_spent });
         else
           resolve({error: "Game not available, check the id."});
       });

@@ -31,7 +31,7 @@ export default function UserDao() {
                 else {
                     const user = { id: row.id,  surname: row.surname, name: row.name , username: row.email};
                     crypto.scrypt(password, row.salt, 64, function (err, hashedPassword) {
-                        if (err) reject(err);
+                        if (err) reject(err)
                         if (!crypto.timingSafeEqual(Buffer.from(row.password, 'hex'), hashedPassword))
                             resolve(false);
                         else
