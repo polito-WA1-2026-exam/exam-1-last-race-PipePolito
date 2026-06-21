@@ -105,11 +105,72 @@ function PlanningPhase({ game, stationNames, stations, onValidate, initialSecond
     );
 }
 
-// ── Result Phase (scaffold) ────────────────────────────────────────────────────
+// ── Execution Phase ────────────────────────────────────────────────────────────
+function ExecutionPhase({ result, stationNames, onComplete }) {
+    const [revealed, setRevealed] = useState(0);
+    const onCompleteRef = useRef(onComplete);
+    useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+
+    useEffect(() => {
+        if (!result?.segments) return;
+        if (revealed >= result.segments.length) {
+            const t = setTimeout(() => onCompleteRef.current(), 1500);
+            return () => clearTimeout(t);
+        }
+        const t = setTimeout(() => setRevealed(r => r + 1), 2000);
+        return () => clearTimeout(t);
+    }, [revealed, result]);
+
+    if (!result) {
+        return (
+            <div className="text-center py-5">
+                <p className="fs-4">Validating your route…</p>
+            </div>
+        );
+    }
+
+    const shownSegs = result.segments.slice(0, revealed);
+    const runningCoins = shownSegs.reduce((sum, s) => sum + (s.coinDelta ?? 0), 0);
+
+    return (
+        <div className="container py-3">
+            <h2 className="mb-3">Executing Your Route</h2>
+            <ListGroup className="mb-3">
+                {shownSegs.map((seg, i) => (
+                    <ListGroup.Item key={i}>
+                        <div className="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>
+                                    {stationNames[seg.fromStationId] ?? seg.fromStationId}
+                                    {' → '}
+                                    {stationNames[seg.toStationId] ?? seg.toStationId}
+                                </strong>
+                                {seg.eventName && (
+                                    <div className="text-muted small mt-1">{seg.eventName}</div>
+                                )}
+                            </div>
+                            <Badge bg={seg.coinDelta >= 0 ? 'success' : 'danger'} className="ms-3">
+                                {seg.coinDelta >= 0 ? '+' : ''}{seg.coinDelta}
+                            </Badge>
+                        </div>
+                    </ListGroup.Item>
+                ))}
+            </ListGroup>
+            {revealed > 0 && (
+                <p className="fs-4 mb-0">
+                    Current score: <Badge bg="warning" text="dark">{runningCoins}</Badge>
+                </p>
+            )}
+        </div>
+    );
+}
+
+// ── Result Phase ───────────────────────────────────────────────────────────────
 function ResultPhase({ result, onPlayAgain }) {
     return (
         <div className="text-center py-5">
             <h2>Result</h2>
+            {result?.errorMessage && <Alert variant="danger" className="d-inline-block">{result.errorMessage}</Alert>}
             <p className="fs-3">Final coins: <Badge bg="warning" text="dark">{result?.finalCoins ?? 0}</Badge></p>
             <Button variant="primary" onClick={onPlayAgain}>Play Again</Button>
         </div>
@@ -151,12 +212,10 @@ export default function GameLayout({ loggedIn }) {
         if (phase !== 'execution' || !pendingSegments) return;
         const timeSpent = Math.round((Date.now() - startTimeRef.current) / 1000);
         submitRoute(game.id, pendingSegments, timeSpent)
-            .then(res => { setResult(res); setPhase('result'); })
+            .then(res => { setResult(res); })
             .catch(e => {
-                setError(e.message);
-                const elapsed = Math.round((Date.now() - planningStartRef.current) / 1000);
-                setPlanningSecondsLeft(Math.max(0, PLANNING_SECONDS - elapsed));
-                setPhase('planning');
+                setResult({ finalCoins: 0, errorMessage: e.message });
+                setPhase('result');
             });
     }, [phase, pendingSegments, game]);
 
@@ -177,6 +236,35 @@ export default function GameLayout({ loggedIn }) {
 
     // Called from PlanningPhase with array of station names
     const handleValidate = async (names) => {
+        const startName = stationNames[game.startStationId];
+        const endName   = stationNames[game.endStationId];
+
+        // 1. Start / end station check
+        if (names[0] !== startName || names[names.length - 1] !== endName) {
+            setResult({ finalCoins: 0, errorMessage: `Route must start at "${startName}" and end at "${endName}".` });
+            setPhase('result');
+            return;
+        }
+
+        // 2. Minimum 3 segments
+        if (names.length < 4) {
+            setResult({ finalCoins: 0, errorMessage: 'Route must contain at least 3 segments.' });
+            setPhase('result');
+            return;
+        }
+
+        // 3. No segment used more than once (undirected)
+        const seen = new Set();
+        for (let i = 0; i < names.length - 1; i++) {
+            const key = [names[i], names[i + 1]].sort().join('|');
+            if (seen.has(key)) {
+                setResult({ finalCoins: 0, errorMessage: `Segment "${names[i]} ↔ ${names[i + 1]}" is used more than once.` });
+                setPhase('result');
+                return;
+            }
+            seen.add(key);
+        }
+
         try {
             await validateRoute(game.id, game.startStationId, game.endStationId);
 
@@ -197,7 +285,8 @@ export default function GameLayout({ loggedIn }) {
             setPendingSegments(segments);
             setPhase('execution');
         } catch (e) {
-            setError(e.message);
+            setResult({ finalCoins: 0, errorMessage: e.message });
+            setPhase('result');
         }
     };
 
@@ -212,7 +301,7 @@ export default function GameLayout({ loggedIn }) {
 
             {phase === 'setup'     && <SetupPhase    user={user} onReady={handleReady} />}
             {phase === 'planning'  && <PlanningPhase game={game} stationNames={stationNames} stations={stations} onValidate={handleValidate} initialSeconds={planningSecondsLeft} />}
-            {phase === 'execution' && <div className="text-center py-5"><p className="fs-4">Executing your route…</p></div>}
+            {phase === 'execution' && <ExecutionPhase result={result} stationNames={stationNames} onComplete={() => setPhase('result')} />}
             {phase === 'result'    && <ResultPhase   result={result} onPlayAgain={handlePlayAgain} />}
         </div>
     );
