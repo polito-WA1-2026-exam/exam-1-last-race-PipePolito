@@ -86,6 +86,19 @@ async function updateTimeSpent(gameId, timeSpent) {
   throw new Error(err.error);
 }
 
+// Planning-phase check: ownership, status, and start/end station match only.
+async function validateRoute(gameId, startId, endId) {
+  const res = await fetch(`${SERVER_URL}/api/games/${gameId}/validate`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ startId, endId }),
+  });
+  if (res.ok) return res.json();
+  const err = await res.json();
+  throw new Error(err.error);
+}
+
 // segments: array of { fromId, toId, lineId }
 // timeSpent: number of seconds used during planning phase
 async function submitRoute(gameId, segments, timeSpent) {
@@ -111,4 +124,4 @@ async function getRanking() {
   throw new Error(err.error);
 }
 
-export { login, getCurrentUser, logout, getNetwork, getStations, startGame, getGame, updateTimeSpent, submitRoute, getRanking };
+export { login, getCurrentUser, logout, getNetwork, getStations, startGame, getGame, updateTimeSpent, validateRoute, submitRoute, getRanking };

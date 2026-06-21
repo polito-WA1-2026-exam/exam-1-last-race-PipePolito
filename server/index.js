@@ -162,29 +162,44 @@ app.put('/api/games/:id', isLoggedIn, async (req, res) => {
   }
 });
 
+// POST /api/games/:id/validate
+// Planning phase: check ownership, status, and that the chosen start/end match the assigned stations.
+app.post('/api/games/:id/validate', isLoggedIn, async (req, res) => {
+  const gameId = Number(req.params.id);
+  const { startId, endId } = req.body;
+
+  if (startId === undefined || endId === undefined)
+    return res.status(400).json({ error: "Missing startId or endId." });
+
+  try {
+    const game = await gameDao.getGame(gameId);
+    if (game.error)                  return res.status(404).json(game);
+    if (game.userId !== req.user.id) return res.status(403).json({ error: "Forbidden." });
+    if (game.status !== 'planning')  return res.status(400).json({ error: "Game already completed." });
+    if (startId !== game.startId)    return res.status(422).json({ error: "Route must start at the assigned station." });
+    if (endId   !== game.endId)      return res.status(422).json({ error: "Route must end at the assigned station." });
+
+    res.json({ valid: true });
+  } catch (err) {
+    res.status(500).json({ error: "Database error during validation." });
+  }
+});
+
 //POST /api/games/:id/route
+// Execution phase: validate segments against the network, apply events, persist and return result.
 app.post('/api/games/:id/route', isLoggedIn, async (req, res) => {
   const gameId = Number(req.params.id);
   const { segments, timeSpent } = req.body;
 
-  // — Basic input validation —
   if (!Array.isArray(segments) || segments.length < 3)
     return res.status(422).json({ error: "Route must have at least 3 segments." });
 
   try {
-    // 1. Load game, check ownership and status
+    // 1. Load game to get the gameId for finalization (ownership already verified in /validate)
     const game = await gameDao.getGame(gameId);
-    if (game.error)  return res.status(404).json(game);
-    if (game.userId !== req.user.id) return res.status(403).json({ error: "Forbidden." });
-    if (game.status !== 'planning')  return res.status(400).json({ error: "Game already completed." });
+    if (game.error) return res.status(404).json(game);
 
-    // 2. Route must start and end at the assigned stations
-    if (segments[0].fromId !== game.startId)
-      return res.status(422).json({ error: "Route must start at the assigned station." });
-    if (segments[segments.length - 1].toId !== game.endId)
-      return res.status(422).json({ error: "Route must end at the assigned station." });
-
-    // 3. Load network to validate segments
+    // 2. Load network to validate segments
     const network = await gameDao.getNetwork();
 
     // Build a set of valid connections (bidirectional): "fromId-toId-lineId"
@@ -198,13 +213,13 @@ app.post('/api/games/:id/route', isLoggedIn, async (req, res) => {
       isInterchange[c.station2Id] = c.station2IsInterchange;
     });
 
-    // 4. Validate each segment
+    // 3. Validate each segment
     for (const seg of segments) {
       if (!validConnections.has(`${seg.fromId}-${seg.toId}-${seg.lineId}`))
         return res.status(422).json({ error: `Invalid segment: station ${seg.fromId} → ${seg.toId} on line ${seg.lineId}.` });
     }
 
-    // 5. Line changes only allowed at interchange stations
+    // 4. Line changes only allowed at interchange stations
     for (let i = 1; i < segments.length; i++) {
       if (segments[i].lineId !== segments[i - 1].lineId) {
         const changeStation = segments[i].fromId;
@@ -213,7 +228,7 @@ app.post('/api/games/:id/route', isLoggedIn, async (req, res) => {
       }
     }
 
-    // 6. Apply a random weighted event per segment
+    // 5. Apply a random weighted event per segment
     const events = await gameDao.getAllEvents();
     const totalProb = events.reduce((sum, e) => sum + e.probability, 0);
 
@@ -232,7 +247,7 @@ app.post('/api/games/:id/route', isLoggedIn, async (req, res) => {
 
     const finalCoins = Math.max(0, 20 + totalDelta);
 
-    // 7. Persist and respond
+    // 6. Persist and respond
     await gameDao.addSegments(gameId, processedSegments);
     await gameDao.finalizeGame(gameId, finalCoins);
     if (timeSpent !== undefined) await gameDao.updateTime({ id: gameId, time: timeSpent });

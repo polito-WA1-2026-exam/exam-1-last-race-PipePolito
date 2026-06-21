@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Badge, Alert, ListGroup } from "react-bootstrap";
-import { startGame, getNetwork, submitRoute, getStations } from "../API.js";
+import { startGame, getNetwork, validateRoute, submitRoute, getStations } from "../API.js";
 import FeedbackContext from "../contexts/FeedbackContext.js";
 
 const SETUP_SECONDS = 60;
@@ -58,7 +58,7 @@ function SetupPhase({ user, onReady }) {
 }
 
 // ── Planning Phase ─────────────────────────────────────────────────────────────
-function PlanningPhase({ game, stationNames, stations, onSubmit }) {
+function PlanningPhase({ game, stationNames, stations, onValidate, initialSeconds = PLANNING_SECONDS }) {
     const [picked, setPicked] = useState([]);
 
     const startName = stationNames[game?.startStationId] ?? '?';
@@ -68,19 +68,18 @@ function PlanningPhase({ game, stationNames, stations, onSubmit }) {
         ? picked.join(' → ')
         : 'Click a station to start your route';
 
+    const handleSubmit = () => onValidate(picked);
+
     return (
         <div className="container py-3">
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <h2 className="mb-0">Planning — Build Your Route</h2>
-                <Timer duration={PLANNING_SECONDS} onExpire={onSubmit} />
+                <Timer duration={initialSeconds} onExpire={handleSubmit} />
             </div>
 
             <p className="mb-3">
                 <strong>From:</strong> {startName} &nbsp;&nbsp; <strong>To:</strong> {endName}
             </p>
-
-            {/* Route display */}
-            <h4 className="mb-3">{routeText}</h4>
 
             {/* Station list */}
             <ListGroup className="mb-3" style={{ maxHeight: '40vh', overflowY: 'auto' }}>
@@ -91,11 +90,14 @@ function PlanningPhase({ game, stationNames, stations, onSubmit }) {
                 ))}
             </ListGroup>
 
+            {/* Route display */}
+            <h4 className="mb-2">{routeText}</h4>
+
             <div className="d-flex gap-2">
                 <Button variant="outline-secondary" onClick={() => setPicked(prev => prev.slice(0, -1))} disabled={picked.length === 0}>
                     ← Remove Last
                 </Button>
-                <Button variant="primary" onClick={() => onSubmit(picked)} disabled={picked.length < 2}>
+                <Button variant="primary" onClick={handleSubmit}>
                     Submit Route
                 </Button>
             </div>
@@ -117,13 +119,16 @@ function ResultPhase({ result, onPlayAgain }) {
 // ── Main GameLayout ────────────────────────────────────────────────────────────
 export default function GameLayout({ loggedIn }) {
     const { user } = useContext(FeedbackContext);
-    const [phase, setPhase] = useState('setup');   // 'setup' | 'planning' | 'result'
-    const [game, setGame] = useState(null);        // { id, startStationId, endStationId }
+    const [phase, setPhase] = useState('setup');       // 'setup' | 'planning' | 'execution' | 'result'
+    const [game, setGame] = useState(null);            // { id, startStationId, endStationId }
     const [network, setNetwork] = useState([]);
     const [stations, setStations] = useState([]);
+    const [pendingSegments, setPendingSegments] = useState(null); // built in handleValidate, consumed in execution
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
+    const [planningSecondsLeft, setPlanningSecondsLeft] = useState(PLANNING_SECONDS);
     const startTimeRef = useRef(null);
+    const planningStartRef = useRef(null);
     const navigate = useNavigate();
 
     // Build id → name map from network data
@@ -133,13 +138,27 @@ export default function GameLayout({ loggedIn }) {
         stationNames[c.station2Id] = c.station2Name;
     });
 
-    // Fetch the network once on mount — safe to repeat (GET, no side effects)
+    // Fetch the network once on mount
     useEffect(() => {
         if (!loggedIn) { navigate('/login'); return; }
         getNetwork()
             .then(net => setNetwork(net))
             .catch(e => setError(e.message));
     }, []);
+
+    // Execution phase: segments were built in handleValidate, now submit them
+    useEffect(() => {
+        if (phase !== 'execution' || !pendingSegments) return;
+        const timeSpent = Math.round((Date.now() - startTimeRef.current) / 1000);
+        submitRoute(game.id, pendingSegments, timeSpent)
+            .then(res => { setResult(res); setPhase('result'); })
+            .catch(e => {
+                setError(e.message);
+                const elapsed = Math.round((Date.now() - planningStartRef.current) / 1000);
+                setPlanningSecondsLeft(Math.max(0, PLANNING_SECONDS - elapsed));
+                setPhase('planning');
+            });
+    }, [phase, pendingSegments, game]);
 
     // Create the game only when the player is done studying the map
     const handleReady = async () => {
@@ -148,36 +167,53 @@ export default function GameLayout({ loggedIn }) {
             setGame(g);
             setStations(stationList);
             startTimeRef.current = Date.now();
+            planningStartRef.current = Date.now();
+            setPlanningSecondsLeft(PLANNING_SECONDS);
             setPhase('planning');
         } catch (e) {
             setError(e.message);
         }
     };
 
-    const handleSubmit = async (segments) => {
-        const timeSpent = Math.round((Date.now() - startTimeRef.current) / 1000);
+    // Called from PlanningPhase with array of station names
+    const handleValidate = async (names) => {
         try {
-            const res = await submitRoute(game.id, segments, timeSpent);
-            setResult(res);
-            setPhase('result');
+            await validateRoute(game.id, game.startStationId, game.endStationId);
+
+            // Build segments here so execution useEffect only needs pendingSegments
+            const nameToId = {};
+            Object.entries(stationNames).forEach(([id, name]) => { nameToId[name] = Number(id); });
+            const connMap = {};
+            network.forEach(c => {
+                connMap[`${c.station1Id}-${c.station2Id}`] = c.lineId;
+                connMap[`${c.station2Id}-${c.station1Id}`] = c.lineId;
+            });
+            const segments = names.slice(0, -1).map((name, i) => {
+                const fromId = nameToId[name];
+                const toId   = nameToId[names[i + 1]];
+                return { fromId, toId, lineId: connMap[`${fromId}-${toId}`] };
+            });
+
+            setPendingSegments(segments);
+            setPhase('execution');
         } catch (e) {
             setError(e.message);
         }
     };
 
     const handlePlayAgain = () => {
-        setGame(null); setResult(null); setError('');
+        setGame(null); setResult(null); setPendingSegments(null); setError('');
         setPhase('setup');
-        // network stays loaded — no need to re-fetch
     };
 
     return (
         <div className="container-fluid py-3">
             {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
 
-            {phase === 'setup'    && <SetupPhase    user={user} onReady={handleReady} />}
-            {phase === 'planning' && <PlanningPhase game={game} stationNames={stationNames} stations={stations} onSubmit={handleSubmit} />}
-            {phase === 'result'   && <ResultPhase   result={result} onPlayAgain={handlePlayAgain} />}
+            {phase === 'setup'     && <SetupPhase    user={user} onReady={handleReady} />}
+            {phase === 'planning'  && <PlanningPhase game={game} stationNames={stationNames} stations={stations} onValidate={handleValidate} initialSeconds={planningSecondsLeft} />}
+            {phase === 'execution' && <div className="text-center py-5"><p className="fs-4">Executing your route…</p></div>}
+            {phase === 'result'    && <ResultPhase   result={result} onPlayAgain={handlePlayAgain} />}
         </div>
     );
 }
