@@ -4,7 +4,7 @@ export default function GameDao() {
   // Retrieve the list of stations
   this.listStations = () => {
     return new Promise((resolve, reject) => {
-      const sql = "SELECT name FROM stations";
+      const sql = "SELECT name FROM stations ORDER BY RANDOM()";
       db.all(sql, [], (err, rows) => {
         if(err)
           reject(err);

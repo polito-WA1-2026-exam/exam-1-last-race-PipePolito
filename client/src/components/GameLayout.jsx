@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useContext } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Badge, Alert } from "react-bootstrap";
-import { startGame, getNetwork, submitRoute } from "../API.js";
+import { Button, Badge, Alert, ListGroup } from "react-bootstrap";
+import { startGame, getNetwork, submitRoute, getStations } from "../API.js";
 import FeedbackContext from "../contexts/FeedbackContext.js";
 
 const SETUP_SECONDS = 60;
@@ -57,13 +57,48 @@ function SetupPhase({ user, onReady }) {
     );
 }
 
-// ── Planning Phase (scaffold) ──────────────────────────────────────────────────
-function PlanningPhase({ game, stationNames }) {
+// ── Planning Phase ─────────────────────────────────────────────────────────────
+function PlanningPhase({ game, stationNames, stations, onSubmit }) {
+    const [picked, setPicked] = useState([]);
+
+    const startName = stationNames[game?.startStationId] ?? '?';
+    const endName   = stationNames[game?.endStationId]   ?? '?';
+
+    const routeText = picked.length > 0
+        ? picked.join(' → ')
+        : 'Click a station to start your route';
+
     return (
-        <div className="text-center py-5">
-            <h2>Planning — Build Your Route</h2>
-            <p className="text-muted">Route builder coming soon…</p>
-            <p><strong>Start:</strong> {stationNames[game?.startStationId]} → <strong>End:</strong> {stationNames[game?.endStationId]}</p>
+        <div className="container py-3">
+            <div className="d-flex justify-content-between align-items-center mb-3">
+                <h2 className="mb-0">Planning — Build Your Route</h2>
+                <Timer duration={PLANNING_SECONDS} onExpire={onSubmit} />
+            </div>
+
+            <p className="mb-3">
+                <strong>From:</strong> {startName} &nbsp;&nbsp; <strong>To:</strong> {endName}
+            </p>
+
+            {/* Route display */}
+            <h4 className="mb-3">{routeText}</h4>
+
+            {/* Station list */}
+            <ListGroup className="mb-3" style={{ maxHeight: '40vh', overflowY: 'auto' }}>
+                {stations.map(name => (
+                    <ListGroup.Item key={name} action onClick={() => setPicked(prev => [...prev, name])}>
+                        {name}
+                    </ListGroup.Item>
+                ))}
+            </ListGroup>
+
+            <div className="d-flex gap-2">
+                <Button variant="outline-secondary" onClick={() => setPicked(prev => prev.slice(0, -1))} disabled={picked.length === 0}>
+                    ← Remove Last
+                </Button>
+                <Button variant="primary" onClick={() => onSubmit(picked)} disabled={picked.length < 2}>
+                    Submit Route
+                </Button>
+            </div>
         </div>
     );
 }
@@ -85,6 +120,7 @@ export default function GameLayout({ loggedIn }) {
     const [phase, setPhase] = useState('setup');   // 'setup' | 'planning' | 'result'
     const [game, setGame] = useState(null);        // { id, startStationId, endStationId }
     const [network, setNetwork] = useState([]);
+    const [stations, setStations] = useState([]);
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
     const startTimeRef = useRef(null);
@@ -108,8 +144,9 @@ export default function GameLayout({ loggedIn }) {
     // Create the game only when the player is done studying the map
     const handleReady = async () => {
         try {
-            const g = await startGame();
+            const [g, stationList] = await Promise.all([startGame(), getStations()]);
             setGame(g);
+            setStations(stationList);
             startTimeRef.current = Date.now();
             setPhase('planning');
         } catch (e) {
@@ -139,7 +176,7 @@ export default function GameLayout({ loggedIn }) {
             {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
 
             {phase === 'setup'    && <SetupPhase    user={user} onReady={handleReady} />}
-            {phase === 'planning' && <PlanningPhase game={game} stationNames={stationNames} onSubmit={handleSubmit} />}
+            {phase === 'planning' && <PlanningPhase game={game} stationNames={stationNames} stations={stations} onSubmit={handleSubmit} />}
             {phase === 'result'   && <ResultPhase   result={result} onPlayAgain={handlePlayAgain} />}
         </div>
     );
