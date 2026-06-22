@@ -42,11 +42,11 @@ async function getNetwork() {
   throw new Error(err.error);
 }
 
-async function getStations() {
-  const res = await fetch(`${SERVER_URL}/api/stations`, {
+async function getSegments() {
+  const res = await fetch(`${SERVER_URL}/api/segments`, {
     credentials: 'include',
   });
-  if (res.ok) return res.json();          // array of station name strings
+  if (res.ok) return res.json();          // array of { station1, station2 } objects
   const err = await res.json();
   throw new Error(err.error);
 }
@@ -124,4 +124,4 @@ async function getRanking() {
   throw new Error(err.error);
 }
 
-export { login, getCurrentUser, logout, getNetwork, getStations, startGame, getGame, updateTimeSpent, validateRoute, submitRoute, getRanking };
+export { login, getCurrentUser, logout, getNetwork, getSegments, startGame, getGame, updateTimeSpent, validateRoute, submitRoute, getRanking };

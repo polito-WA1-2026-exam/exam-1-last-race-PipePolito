@@ -1,17 +1,21 @@
 import db from "./db.js";
 
 export default function GameDao() {
-  // Retrieve the list of stations
-  this.listStations = () => {
+  // Retrieve the list of connected station pairs (segments)
+  this.listSegments = () => {
     return new Promise((resolve, reject) => {
-      const sql = "SELECT name FROM stations ORDER BY RANDOM()";
+      const sql = `
+        SELECT s1.name AS station1, s2.name AS station2
+        FROM connections c
+        JOIN stations s1 ON c.station_1_id = s1.id
+        JOIN stations s2 ON c.station_2_id = s2.id
+        ORDER BY RANDOM()
+      `;
       db.all(sql, [], (err, rows) => {
-        if(err)
+        if (err)
           reject(err);
-        else {
-          const stations = rows.map((s => s.name));
-          resolve(stations);
-        }
+        else
+          resolve(rows.map(r => ({ station1: r.station1, station2: r.station2 })));
       });
     });
   }
@@ -160,11 +164,15 @@ export default function GameDao() {
   this.getRanking = () => {
   return new Promise((resolve, reject) => {
     const sql = `
-      SELECT u.name, u.surname, g.final_coins, g.created_at, g.time_spent
+      SELECT u.name, u.surname,
+             MAX(g.final_coins) AS final_coins,
+             MIN(g.time_spent)  AS time_spent,
+             MAX(g.created_at)  AS created_at
       FROM games g JOIN users u ON g.user_id = u.id
       WHERE g.status = 'completed'
-      ORDER BY g.final_coins DESC, g.time_spent ASC
-      LIMIT 10
+      GROUP BY u.id
+      ORDER BY MAX(g.final_coins) DESC, MIN(g.time_spent) ASC, u.name ASC
+      LIMIT 2
     `;
     db.all(sql, [], (err, rows) => {
       if (err) reject(err);

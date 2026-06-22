@@ -114,15 +114,15 @@ app.get('/api/games/:id', isLoggedIn, async (req, res) => {
     });
 });
 
-//GET /api/stations
-// Get the list of stations for the planning phase of the game.
-app.get('/api/stations', isLoggedIn, async (req, res) => {
-  gameDao.listStations()
-    .then((stations) => {
-      res.json(stations);
+//GET /api/segments
+// Get the list of connected station pairs for the planning phase of the game.
+app.get('/api/segments', isLoggedIn, async (req, res) => {
+  gameDao.listSegments()
+    .then((segments) => {
+      res.json(segments);
     })
     .catch((err) => {
-      res.status(500).json({error: "Database error while retrieving stations."});
+      res.status(500).json({error: "Database error while retrieving segments."});
     });
 });
 

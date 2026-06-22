@@ -94,7 +94,7 @@ export function RulesLayout({ loggedIn }) {
                 </p>
 
                 <div className="d-flex gap-3 mt-4">
-                    <Link to="/" className="btn btn-outline-secondary">← Back to Home</Link>
+                    <Link to="/" className="btn btn-outline-secondary">Home</Link>
                     {loggedIn ? (
                         <Link to="/game" className="btn btn-success btn-lg mt-2">Let's Play</Link>
                         ): (

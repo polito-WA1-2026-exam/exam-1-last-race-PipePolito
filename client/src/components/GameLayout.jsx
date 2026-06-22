@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Badge, Alert, ListGroup } from "react-bootstrap";
-import { startGame, getNetwork, validateRoute, submitRoute, getStations } from "../API.js";
+import { startGame, getNetwork, validateRoute, submitRoute, getSegments } from "../API.js";
 import FeedbackContext from "../contexts/FeedbackContext.js";
 
 const SETUP_SECONDS = 60;
@@ -58,7 +58,7 @@ function SetupPhase({ user, onReady }) {
 }
 
 // ── Planning Phase ─────────────────────────────────────────────────────────────
-function PlanningPhase({ game, stationNames, stations, onValidate, initialSeconds = PLANNING_SECONDS }) {
+function PlanningPhase({ game, stationNames, segments, onValidate, initialSeconds = PLANNING_SECONDS }) {
     const [picked, setPicked] = useState([]);
 
     const startName = stationNames[game?.startStationId] ?? '?';
@@ -66,7 +66,20 @@ function PlanningPhase({ game, stationNames, stations, onValidate, initialSecond
 
     const routeText = picked.length > 0
         ? picked.join(' → ')
-        : 'Click a station to start your route';
+        : 'Click a segment to start your route';
+
+    const addSegment = (from, to) => {
+        setPicked(prev => {
+            if (prev.length === 0) return [from, to];
+            const last = prev[prev.length - 1];
+            if (last === from) return [...prev, to];
+            // Doesn't connect — append both (validation will catch it)
+            return [...prev, from, to];
+        });
+    };
+
+    const removeLast = () =>
+        setPicked(prev => prev.length <= 2 ? [] : prev.slice(0, -1));
 
     const handleSubmit = () => onValidate(picked);
 
@@ -81,21 +94,36 @@ function PlanningPhase({ game, stationNames, stations, onValidate, initialSecond
                 <strong>From:</strong> {startName} &nbsp;&nbsp; <strong>To:</strong> {endName}
             </p>
 
-            {/* Station list */}
-            <ListGroup className="mb-3" style={{ maxHeight: '40vh', overflowY: 'auto' }}>
-                {stations.map(name => (
-                    <ListGroup.Item key={name} action onClick={() => setPicked(prev => [...prev, name])}>
-                        {name}
+            <img
+                src="/No Network.png"
+                alt="Metro network map (no lines)"
+                className="img-fluid border rounded shadow-sm mb-3"
+                style={{ maxHeight: "40vh" }}
+            />
+
+            {/* Segment list */}
+            <ListGroup className="mb-3" style={{ maxHeight: '35vh', overflowY: 'auto' }}>
+                {segments.map((seg, i) => (
+                    <ListGroup.Item key={i} className="d-flex justify-content-between align-items-center">
+                        <span>{seg.station1} — {seg.station2}</span>
+                        <div className="d-flex gap-1">
+                            <Button size="sm" variant="outline-primary" onClick={() => addSegment(seg.station1, seg.station2)}>
+                                {seg.station1} →
+                            </Button>
+                            <Button size="sm" variant="outline-secondary" onClick={() => addSegment(seg.station2, seg.station1)}>
+                                {seg.station2} →
+                            </Button>
+                        </div>
                     </ListGroup.Item>
                 ))}
             </ListGroup>
 
             {/* Route display */}
-            <h4 className="mb-2">{routeText}</h4>
+            <h5 className="mb-2">{routeText}</h5>
 
             <div className="d-flex gap-2">
-                <Button variant="outline-secondary" onClick={() => setPicked(prev => prev.slice(0, -1))} disabled={picked.length === 0}>
-                    ← Remove Last
+                <Button variant="outline-secondary" onClick={removeLast} disabled={picked.length === 0}>
+                    ← Remove Last Segment
                 </Button>
                 <Button variant="primary" onClick={handleSubmit}>
                     Submit Route
@@ -167,12 +195,14 @@ function ExecutionPhase({ result, stationNames, onComplete }) {
 
 // ── Result Phase ───────────────────────────────────────────────────────────────
 function ResultPhase({ result, onPlayAgain }) {
+    const navigate = useNavigate();
     return (
         <div className="text-center py-5">
             <h2>Result</h2>
             {result?.errorMessage && <Alert variant="danger" className="d-inline-block">{result.errorMessage}</Alert>}
             <p className="fs-3">Final coins: <Badge bg="warning" text="dark">{result?.finalCoins ?? 0}</Badge></p>
             <Button variant="primary" onClick={onPlayAgain}>Play Again</Button>
+            <Button variant="outline-secondary" onClick={() => navigate('/')}>Home</Button>
         </div>
     );
 }
@@ -183,7 +213,7 @@ export default function GameLayout({ loggedIn }) {
     const [phase, setPhase] = useState('setup');       // 'setup' | 'planning' | 'execution' | 'result'
     const [game, setGame] = useState(null);            // { id, startStationId, endStationId }
     const [network, setNetwork] = useState([]);
-    const [stations, setStations] = useState([]);
+    const [segments, setSegments] = useState([]);
     const [pendingSegments, setPendingSegments] = useState(null); // built in handleValidate, consumed in execution
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
@@ -222,9 +252,9 @@ export default function GameLayout({ loggedIn }) {
     // Create the game only when the player is done studying the map
     const handleReady = async () => {
         try {
-            const [g, stationList] = await Promise.all([startGame(), getStations()]);
+            const [g, segmentList] = await Promise.all([startGame(), getSegments()]);
             setGame(g);
-            setStations(stationList);
+            setSegments(segmentList);
             startTimeRef.current = Date.now();
             planningStartRef.current = Date.now();
             setPlanningSecondsLeft(PLANNING_SECONDS);
@@ -300,7 +330,7 @@ export default function GameLayout({ loggedIn }) {
             {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
 
             {phase === 'setup'     && <SetupPhase    user={user} onReady={handleReady} />}
-            {phase === 'planning'  && <PlanningPhase game={game} stationNames={stationNames} stations={stations} onValidate={handleValidate} initialSeconds={planningSecondsLeft} />}
+            {phase === 'planning'  && <PlanningPhase game={game} stationNames={stationNames} segments={segments} onValidate={handleValidate} initialSeconds={planningSecondsLeft} />}
             {phase === 'execution' && <ExecutionPhase result={result} stationNames={stationNames} onComplete={() => setPhase('result')} />}
             {phase === 'result'    && <ResultPhase   result={result} onPlayAgain={handlePlayAgain} />}
         </div>

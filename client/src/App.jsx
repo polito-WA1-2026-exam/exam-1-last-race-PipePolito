@@ -34,21 +34,19 @@ function App() {
     setUser({ id: undefined, surname: undefined, name: undefined, email: undefined });
   };
 
-  // Restore session on page refresh (Week 10 pattern)
+  // Restore session on page refresh
   useEffect(() => {
     getCurrentUser()
-      .then(u => {
-        setLoggedIn(true);
-        setUser(u);
-        return getRanking();          // fetch ranking only after session confirmed
-      })
-      .then(rows => setRanking(rows))
-      .catch(() => {
-        setLoggedIn(false);
-        setUser(null);
-      })
+      .then(u => { setLoggedIn(true); setUser(u); })
+      .catch(() => { setLoggedIn(false); setUser(null); })
       .finally(() => setLoading(false));
   }, []);
+
+  // Fetch rankings whenever the user is logged in (covers both login and page refresh)
+  useEffect(() => {
+    if (!loggedIn) return;
+    getRanking().then(rows => setRanking(rows)).catch(() => {});
+  }, [loggedIn]);
 
   if (loading) return null;
 
