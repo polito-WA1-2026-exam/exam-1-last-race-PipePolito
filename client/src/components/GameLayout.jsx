@@ -4,7 +4,7 @@ import { Button, Badge, Alert, ListGroup } from "react-bootstrap";
 import { startGame, getNetwork, validateRoute, submitRoute, getSegments } from "../API.js";
 import FeedbackContext from "../contexts/FeedbackContext.js";
 
-const SETUP_SECONDS = 60;
+const SETUP_SECONDS = 120;
 export const PLANNING_SECONDS = 90;
 
 // ── Timer ──────────────────────────────────────────────────────────────────────
