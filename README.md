@@ -32,19 +32,10 @@
 
   - Request parameters: none
   - Response body: `[ { lineId, lineName, station1Id, station1Name, station1IsInterchange, station2Id, station2Name, station2IsInterchange }, … ]`
-- GET `/api/games/:id` — Get a game by ID. Used for the current one
-
-  - Request parameters: `id` (integer, game ID in the URL)
-  - Response body: `{ id, userId, startId, endId, status, score, created, time }`
 - POST `/api/games` — Create a new game; the server picks a random start and end station at least 3 stops apart
 
   - Request body: none
   - Response body: `{ id, startStationId, endStationId }`
-- PUT `/api/games/:id` — Update the time spent on a game
-
-  - Request parameters: `id` (integer, game ID in the URL)
-  - Request body: `{ timeSpent: number }` (seconds)
-  - Response body: `{ message: "Game updated successfully." }`
 - POST `/api/games/:id/validate` — Planning-phase check: verifies ownership, game status, and that the submitted start/end IDs station match the assigned ones
 
   - Request parameters: `id` (integer, game ID in the URL)

@@ -99,21 +99,6 @@ app.delete('/api/sessions/current', (req, res) => {
 });
 
 /** Game APIs **/
-//GET /api/games/:id
-// Get the game by ID, only if it belongs to the logged in user.
-app.get('/api/games/:id', isLoggedIn, async (req, res) => {
-  gameDao.getGame(req.params.id)
-    .then((game) => {
-      if(game.error)
-        res.status(404).json(game);
-      else
-        res.json(game);
-    })
-    .catch((err) => {
-      res.status(500).json({error: "Database error while retrieving game."});
-    });
-});
-
 //GET /api/segments
 // Get the list of connected station pairs for the planning phase of the game.
 app.get('/api/segments', isLoggedIn, async (req, res) => {
@@ -146,21 +131,6 @@ app.post('/api/games', isLoggedIn, async (req, res) => {
   }
 });
 
-
-//PUT /api/games/:id
-// Update the game time spent
-app.put('/api/games/:id', isLoggedIn, async (req, res) => {
-  const {timeSpent} = req.body;
-  if (timeSpent === undefined) {
-    return res.status(400).json({error: "Missing timeSpent in request body."});
-  }
-  try {
-    await gameDao.updateTime({id: req.params.id, time: timeSpent});
-    res.status(200).json({message: "Game updated successfully."});
-  } catch (err) {
-    res.status(500).json({error: "Database error while updating game."});
-  }
-});
 
 // POST /api/games/:id/validate
 // Planning phase: check ownership, status, and that the chosen start/end match the assigned stations.

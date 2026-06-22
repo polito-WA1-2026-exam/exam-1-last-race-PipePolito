@@ -9,25 +9,13 @@ function Game(id, userId, startId, endId, status, score, created, time) {
     this.time = time;
 }
 
-function Events(id, name, prob, score) {
+function Events(id, name_event, probability, score) {
     this.id = id;
-    this.name = name;
-    this.prob = prob;
+    this.name_event = name_event;
+    this.probability = probability;
     this.score = score;
 }
 
-function Stations(id, name, interchange, connection) {
-    this.id = id;
-    this.name = name;
-    this.interchange = interchange;
-    this.connection = connection;
-}
-
-function Line(id, name, numStations) {
-    this.id = id;
-    this.name = name;
-    this.numStations = numStations;
-}
 
 
-export {Game, Line, Events, Stations}
+export {Game, Events }

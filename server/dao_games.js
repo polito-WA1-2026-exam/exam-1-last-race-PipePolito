@@ -1,4 +1,5 @@
 import db from "./db.js";
+import { Game, Events } from "./gameModels.js";
 
 export default function GameDao() {
   // Retrieve the list of connected station pairs (segments)
@@ -28,7 +29,7 @@ export default function GameDao() {
         if(err)
           reject(err);
         else if(row !== undefined)
-          resolve({ id: row.id, userId: row.user_id, startId: row.start_station_id, endId: row.end_station_id, status: row.status, score: row.final_coins, created: row.created_at, time: row.time_spent });
+          resolve(new Game(row.id, row.user_id, row.start_station_id, row.end_station_id, row.status, row.final_coins, row.created_at, row.time_spent));
         else
           resolve({error: "Game not available, check the id."});
       });
@@ -105,7 +106,7 @@ export default function GameDao() {
     return new Promise((resolve, reject) => {
       db.all("SELECT * FROM events", [], (err, rows) => {
         if (err) reject(err);
-        else resolve(rows);
+        else resolve(rows.map(r => new Events(r.id, r.name_event, r.probability, r.score)));
       });
     });
   };
