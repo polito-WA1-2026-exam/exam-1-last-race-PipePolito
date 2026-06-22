@@ -172,7 +172,6 @@ export default function GameDao() {
       WHERE g.status = 'completed'
       GROUP BY u.id
       ORDER BY MAX(g.final_coins) DESC, MIN(g.time_spent) ASC, u.name ASC
-      LIMIT 2
     `;
     db.all(sql, [], (err, rows) => {
       if (err) reject(err);
